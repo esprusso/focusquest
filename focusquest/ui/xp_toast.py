@@ -17,6 +17,13 @@ from PyQt6.QtWidgets import (
 )
 
 
+def _hex_to_rgba(hex_color: str, alpha: int) -> str:
+    """Convert '#RRGGBB' + 0-255 alpha to 'rgba(R, G, B, A)'."""
+    h = hex_color.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return f"rgba({r}, {g}, {b}, {alpha})"
+
+
 class XPToast(QWidget):
     """A floating XP notification that fades in, holds, then fades out."""
 
@@ -29,6 +36,9 @@ class XPToast(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.setFixedWidth(320)
         self.hide()
+
+        # Palette (populated by apply_palette, falls back to Midnight)
+        self._palette: dict[str, str] = {}
 
         self._build_ui()
 
@@ -45,13 +55,6 @@ class XPToast(QWidget):
         self._dismiss_timer.timeout.connect(self._fade_out)
 
     def _build_ui(self) -> None:
-        self.setStyleSheet(
-            "XPToast {"
-            "  background-color: rgba(30, 30, 50, 200);"
-            "  border: 1px solid rgba(166, 227, 161, 80);"
-            "  border-radius: 12px;"
-            "}"
-        )
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 12, 20, 12)
         layout.setSpacing(4)
@@ -59,25 +62,75 @@ class XPToast(QWidget):
 
         self._amount_label = QLabel("+100 XP", self)
         self._amount_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._amount_label.setStyleSheet(
-            "font-size: 24px; font-weight: 700; color: #A6E3A1;"
-            "background: transparent; border: none;"
-        )
         layout.addWidget(self._amount_label)
 
         self._bonus_label = QLabel("", self)
         self._bonus_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._bonus_label.setWordWrap(True)
-        self._bonus_label.setStyleSheet(
-            "font-size: 11px; color: #7A7A9A;"
+        layout.addWidget(self._bonus_label)
+
+        # Apply default styles
+        self._apply_xp_styles()
+
+    # ── theming ───────────────────────────────────────────────────────────
+
+    def _apply_xp_styles(self) -> None:
+        """Apply the normal +XP appearance from the current palette."""
+        bg = self._palette.get("bg_secondary", "#232340")
+        success = self._palette.get("success", "#A6E3A1")
+        text_muted = self._palette.get("text_muted", "#7A7A9A")
+
+        self.setStyleSheet(
+            "XPToast {"
+            f"  background-color: {_hex_to_rgba(bg, 200)};"
+            f"  border: 1px solid {_hex_to_rgba(success, 80)};"
+            "  border-radius: 12px;"
+            "}"
+        )
+        self._amount_label.setStyleSheet(
+            f"font-size: 24px; font-weight: 700; color: {success};"
             "background: transparent; border: none;"
         )
-        layout.addWidget(self._bonus_label)
+        self._bonus_label.setStyleSheet(
+            f"font-size: 11px; color: {text_muted};"
+            "background: transparent; border: none;"
+        )
+
+    def _apply_levelup_styles(self) -> None:
+        """Apply the LEVEL UP! appearance from the current palette."""
+        bg = self._palette.get("bg_secondary", "#232340")
+        accent = self._palette.get("accent", "#CBA6F7")
+        accent2 = self._palette.get("accent2", "#89B4FA")
+
+        self.setStyleSheet(
+            "XPToast {"
+            f"  background-color: {_hex_to_rgba(bg, 220)};"
+            f"  border: 1px solid {_hex_to_rgba(accent, 120)};"
+            "  border-radius: 12px;"
+            "}"
+        )
+        self._amount_label.setStyleSheet(
+            f"font-size: 26px; font-weight: 700; color: {accent};"
+            "background: transparent; border: none;"
+        )
+        self._bonus_label.setStyleSheet(
+            f"font-size: 13px; color: {accent2}; font-weight: 600;"
+            "background: transparent; border: none;"
+        )
+
+    def apply_palette(self, palette: dict[str, str]) -> None:
+        """Update colours to match the active theme."""
+        self._palette = palette
+        # Re-apply whichever style variant is currently showing.
+        # If the toast is hidden it will be re-styled by show_award/show_level_up
+        # anyway, so just apply the default XP styles.
+        self._apply_xp_styles()
 
     # ── public API ───────────────────────────────────────────────────────
 
     def show_award(self, amount: int, bonuses: list[dict]) -> None:
         """Display the toast with XP amount and bonus breakdown."""
+        self._apply_xp_styles()
         self._amount_label.setText(f"+{amount} XP")
 
         # Build bonus text from breakdown
@@ -110,25 +163,10 @@ class XPToast(QWidget):
 
     def show_level_up(self, new_level: int, title: str) -> None:
         """Show a special level-up toast."""
+        self._apply_levelup_styles()
         self._amount_label.setText(f"LEVEL {new_level}!")
-        self._amount_label.setStyleSheet(
-            "font-size: 26px; font-weight: 700; color: #CBA6F7;"
-            "background: transparent; border: none;"
-        )
         self._bonus_label.setText(title)
-        self._bonus_label.setStyleSheet(
-            "font-size: 13px; color: #B4BEFE; font-weight: 600;"
-            "background: transparent; border: none;"
-        )
         self._bonus_label.show()
-
-        self.setStyleSheet(
-            "XPToast {"
-            "  background-color: rgba(30, 30, 50, 220);"
-            "  border: 1px solid rgba(203, 166, 247, 120);"
-            "  border-radius: 12px;"
-            "}"
-        )
 
         self.adjustSize()
         self._position()
@@ -150,24 +188,6 @@ class XPToast(QWidget):
         # Hold longer for level-up
         self._dismiss_timer.start(self.DISPLAY_MS + 1000)
 
-    def _reset_styles(self) -> None:
-        """Reset to default XP colours after a level-up toast."""
-        self._amount_label.setStyleSheet(
-            "font-size: 24px; font-weight: 700; color: #A6E3A1;"
-            "background: transparent; border: none;"
-        )
-        self._bonus_label.setStyleSheet(
-            "font-size: 11px; color: #7A7A9A;"
-            "background: transparent; border: none;"
-        )
-        self.setStyleSheet(
-            "XPToast {"
-            "  background-color: rgba(30, 30, 50, 200);"
-            "  border: 1px solid rgba(166, 227, 161, 80);"
-            "  border-radius: 12px;"
-            "}"
-        )
-
     # ── internal ─────────────────────────────────────────────────────────
 
     def _fade_out(self) -> None:
@@ -185,7 +205,7 @@ class XPToast(QWidget):
 
     def _on_fade_out_done(self) -> None:
         self.hide()
-        self._reset_styles()
+        self._apply_xp_styles()
 
     def _position(self) -> None:
         """Centre horizontally near the top of the parent widget."""

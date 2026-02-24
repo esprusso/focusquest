@@ -17,6 +17,13 @@ from ..database.db import get_session
 from ..database.models import Session
 
 
+def _hex_to_rgba(hex_color: str, alpha: float) -> str:
+    """Convert '#RRGGBB' to 'rgba(R, G, B, alpha)'."""
+    h = hex_color.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return f"rgba({r}, {g}, {b}, {alpha})"
+
+
 class SessionHistoryWidget(QWidget):
     """Displays today's recently completed work sessions."""
 
@@ -35,7 +42,6 @@ class SessionHistoryWidget(QWidget):
         layout.setSpacing(6)
 
         header = QLabel("Today's Sessions")
-        header.setStyleSheet("font-size: 13px; font-weight: 600; opacity: 0.7;")
         header.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(header)
         self._header = header
@@ -44,12 +50,14 @@ class SessionHistoryWidget(QWidget):
         self._rows_container.setSpacing(4)
         layout.addLayout(self._rows_container)
 
-        self._empty_label = QLabel("No sessions yet today — ready when you are!")
+        self._empty_label = QLabel("No sessions yet today \u2014 ready when you are!")
         self._empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._empty_label.setStyleSheet("font-size: 12px; opacity: 0.5;")
         layout.addWidget(self._empty_label)
 
         self._row_widgets: list[QWidget] = []
+
+        # Apply default styles (before any palette is provided)
+        self._apply_styles()
 
     # ── refresh ───────────────────────────────────────────────────────
 
@@ -94,10 +102,18 @@ class SessionHistoryWidget(QWidget):
     # ── row builder ───────────────────────────────────────────────────
 
     def _make_row(self, sess: Session) -> QWidget:
+        text_color = self._palette.get("text", "#E2E2F0")
+        text_muted = self._palette.get("text_muted", "#7A7A9A")
+        border_color = self._palette.get("border", "#313154")
+        hover_bg = _hex_to_rgba(
+            self._palette.get("accent", "#CBA6F7"), 0.06,
+        )
+
         frame = QFrame(self)
         frame.setStyleSheet(
-            "QFrame { background: transparent; border-radius: 6px; padding: 4px 8px; }"
-            "QFrame:hover { background: rgba(255,255,255,0.04); }"
+            f"QFrame {{ background: transparent; border-radius: 6px;"
+            f"  padding: 4px 8px; }}"
+            f"QFrame:hover {{ background: {hover_bg}; }}"
         )
         row = QHBoxLayout(frame)
         row.setContentsMargins(8, 4, 8, 4)
@@ -107,7 +123,7 @@ class SessionHistoryWidget(QWidget):
         label_text = sess.task_label or "Untitled session"
         task_lbl = QLabel(label_text)
         task_lbl.setStyleSheet(
-            "font-size: 12px; cursor: pointer; text-decoration: none;"
+            f"font-size: 12px; color: {text_color};"
         )
         task_lbl.setCursor(Qt.CursorShape.PointingHandCursor)
         task_lbl.setSizePolicy(
@@ -121,7 +137,7 @@ class SessionHistoryWidget(QWidget):
         # Duration
         mins = (sess.duration_seconds or 0) // 60
         dur_lbl = QLabel(f"{mins}m")
-        dur_lbl.setStyleSheet("font-size: 12px; opacity: 0.5;")
+        dur_lbl.setStyleSheet(f"font-size: 12px; color: {text_muted};")
         dur_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
         # Time completed
@@ -130,7 +146,7 @@ class SessionHistoryWidget(QWidget):
         else:
             time_str = ""
         time_lbl = QLabel(time_str)
-        time_lbl.setStyleSheet("font-size: 11px; opacity: 0.4;")
+        time_lbl.setStyleSheet(f"font-size: 11px; color: {border_color};")
         time_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
         row.addWidget(task_lbl)
@@ -141,5 +157,21 @@ class SessionHistoryWidget(QWidget):
 
     # ── theming ───────────────────────────────────────────────────────
 
+    def _apply_styles(self) -> None:
+        """Set label stylesheets from the current palette (or defaults)."""
+        text_muted = self._palette.get("text_muted", "#7A7A9A")
+        border_color = self._palette.get("border", "#313154")
+
+        self._header.setStyleSheet(
+            f"font-size: 13px; font-weight: 600; color: {text_muted};"
+        )
+        self._empty_label.setStyleSheet(
+            f"font-size: 12px; color: {border_color};"
+        )
+
     def apply_palette(self, palette: dict[str, str]) -> None:
         self._palette = palette
+        self._apply_styles()
+        # Re-build existing rows with the new palette
+        if self._row_widgets:
+            self.refresh()

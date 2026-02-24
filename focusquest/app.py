@@ -186,6 +186,7 @@ class FocusQuestApp(QMainWindow):
 
         # Gentle start overlay (visible initially)
         self._gentle_start = GentleStartWidget(focus_container)
+        self._gentle_start.apply_palette(self._palette)
         self._gentle_start.start_requested.connect(self._dismiss_gentle_start)
         focus_layout.addWidget(self._gentle_start)
 
@@ -198,6 +199,7 @@ class FocusQuestApp(QMainWindow):
 
         # Session history (below timer, hidden until gentle start dismissed)
         self._session_history = SessionHistoryWidget(focus_container)
+        self._session_history.apply_palette(self._palette)
         self._session_history.label_clicked.connect(self._on_history_label_clicked)
         self._session_history.setVisible(False)
         focus_layout.addWidget(self._session_history)
@@ -221,9 +223,11 @@ class FocusQuestApp(QMainWindow):
 
         # XP Toast (child of central so it overlays the tab content)
         self._xp_toast = XPToast(central)
+        self._xp_toast.apply_palette(self._palette)
 
         # Unlock popup (child of central)
         self._unlock_popup = UnlockPopup(central)
+        self._unlock_popup.apply_palette(self._palette)
 
         # Status bar
         self._status_bar = QStatusBar(self)
@@ -777,6 +781,10 @@ class FocusQuestApp(QMainWindow):
         # Per-widget palette updates
         self._timer_widget.apply_palette(self._palette, self._ring_colors)
         self._stats_widget.apply_palette(self._palette)
+        self._xp_toast.apply_palette(self._palette)
+        self._unlock_popup.apply_palette(self._palette)
+        self._gentle_start.apply_palette(self._palette)
+        self._session_history.apply_palette(self._palette)
 
         # Background effect
         theme_item = REGISTRY.get("theme", theme_key)

@@ -40,41 +40,40 @@ class GentleStartWidget(QWidget):
         self._greeting = QLabel("", self)
         self._greeting.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._greeting.setWordWrap(True)
-        self._greeting.setStyleSheet("font-size: 22px; font-weight: 700;")
         layout.addWidget(self._greeting)
 
         # Streak message
         self._streak_msg = QLabel("", self)
         self._streak_msg.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._streak_msg.setWordWrap(True)
-        self._streak_msg.setStyleSheet("font-size: 14px; opacity: 0.8;")
         layout.addWidget(self._streak_msg)
 
         # Cumulative progress
         self._progress_msg = QLabel("", self)
         self._progress_msg.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._progress_msg.setWordWrap(True)
-        self._progress_msg.setStyleSheet("font-size: 13px; opacity: 0.6;")
         layout.addWidget(self._progress_msg)
 
         # Unlock teaser
         self._unlock_teaser = QLabel("", self)
         self._unlock_teaser.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._unlock_teaser.setWordWrap(True)
-        self._unlock_teaser.setStyleSheet("font-size: 13px; opacity: 0.6;")
         layout.addWidget(self._unlock_teaser)
 
         layout.addSpacing(12)
 
         # Start button
-        btn = QPushButton("Ready when you are", self)
-        btn.setObjectName("primaryButton")
-        btn.setFixedHeight(48)
-        btn.setSizePolicy(
+        self._start_btn = QPushButton("Ready when you are", self)
+        self._start_btn.setObjectName("primaryButton")
+        self._start_btn.setFixedHeight(48)
+        self._start_btn.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed,
         )
-        btn.clicked.connect(self.start_requested.emit)
-        layout.addWidget(btn)
+        self._start_btn.clicked.connect(self.start_requested.emit)
+        layout.addWidget(self._start_btn)
+
+        # Apply default styles (before any palette is provided)
+        self._apply_styles()
 
     # ── populate with DB data ─────────────────────────────────────────
 
@@ -152,5 +151,25 @@ class GentleStartWidget(QWidget):
 
     # ── theming ───────────────────────────────────────────────────────
 
+    def _apply_styles(self) -> None:
+        """Set label stylesheets from the current palette (or defaults)."""
+        text = self._palette.get("text", "#E2E2F0")
+        text_muted = self._palette.get("text_muted", "#7A7A9A")
+        accent = self._palette.get("accent", "#CBA6F7")
+
+        self._greeting.setStyleSheet(
+            f"font-size: 22px; font-weight: 700; color: {text};"
+        )
+        self._streak_msg.setStyleSheet(
+            f"font-size: 14px; color: {accent};"
+        )
+        self._progress_msg.setStyleSheet(
+            f"font-size: 13px; color: {text_muted};"
+        )
+        self._unlock_teaser.setStyleSheet(
+            f"font-size: 13px; color: {text_muted};"
+        )
+
     def apply_palette(self, palette: dict[str, str]) -> None:
         self._palette = palette
+        self._apply_styles()
